@@ -116,16 +116,6 @@ struct bpred_btb_ent_t {
   struct bpred_btb_ent_t *prev, *next; /* lru chaining pointers */
 };
 
-struct gbhr_t{
-  char n_bits; // g : Must be between 1 and 5
-  char history_register; // we access here the lower g bits.
-};
-
-struct pht_t{
-  unsigned int entries; // size c : 4, 16, 64, 256, 1024 entries
-  unsigned char *table; // 2 bits stored. direct access with g + i from jump instruction
-};
-
 /* direction predictor def */
 struct bpred_dir_t {
   enum bpred_class class;	/* type of predictor */
@@ -141,12 +131,12 @@ struct bpred_dir_t {
       int xor;			/* history xor address flag */
       int *shiftregs;		/* level-1 history table */
       unsigned char *l2table;	/* level-2 prediction state table */
-      struct gbhr_t gbhr;
-      struct pht_t pht;
-      struct pht_t taken_pht;
-      struct pht_t nottaken_pht;
-      int i_mask;
-      int g_mask;
+      char gbhr_table;
+      unsigned char *pht_taken;
+      unsigned char *pht_nottaken;
+      unsigned int pht_t_size;
+      int i;
+      int g;
     } two;
   } config;
 };

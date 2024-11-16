@@ -182,17 +182,9 @@ bpred_create(enum bpred_class class,	/* type of predictor to create */
   return pred;
 }
 
-static void my_memset(char *mem, char value, int len)
-{
-  for (int i = 0; i < len; i++)
-  {
-    *(mem + i) = value;
-  }
-}
-
 static void bpred_yags_create(struct bpred_dir_t *pred_dir, unsigned int l1size, unsigned int l2size, unsigned int shift_width, unsigned int xor)
 {
-  int pht_size, i, c;
+  int i, c;
 
   if (l1size != 1)
     fatal("level-1 size, `%d', must be 1", l1size);
@@ -204,31 +196,38 @@ static void bpred_yags_create(struct bpred_dir_t *pred_dir, unsigned int l1size,
     fatal("xor, `%d', must be 0", xor);
 
   // Initialize GBHR
-  pred_dir->config.two.gbhr.n_bits = shift_width;
-  pred_dir->config.two.gbhr.history_register = 0b11111; //00011111
+  pred_dir->config.two.shift_width = shift_width;
+  pred_dir->config.two.gbhr_table = 0b11111; //00011111
   // Initialize PHT
-  pred_dir->config.two.pht.table = malloc(sizeof(char) * l2size);
-  if (pred_dir->config.two.pht.table == NULL)
+  pred_dir->config.two.l2table= malloc(sizeof(char) * l2size);
+  if (pred_dir->config.two.l2table == NULL)
     fatal("out of virtual memory");
-  my_memset((void *)pred_dir->config.two.pht.table, 0b11, l2size);
-  pred_dir->config.two.pht.entries = l2size;
-  if (l2size == 4)
-    pht_size = 1;
-  else
-    pht_size = l2size >> 3;
-  // Initialize taken and nottaken PHT
-  pred_dir->config.two.taken_pht.table = malloc(sizeof(char) * pht_size);
-  if (pred_dir->config.two.taken_pht.table == NULL)
-    fatal("out of virtual memory");
-  my_memset(pred_dir->config.two.taken_pht.table, 0b11111111, pht_size);
-  pred_dir->config.two.nottaken_pht.table = malloc(sizeof(char) * pht_size);
-  if (pred_dir->config.two.nottaken_pht.table == NULL)
-    fatal("out of virtual memory");
-  my_memset(pred_dir->config.two.taken_pht.table, 0b11111111, pht_size);
-  pred_dir->config.two.taken_pht.entries = pht_size;
-  pred_dir->config.two.nottaken_pht.entries = pht_size;
+  memset((void *)pred_dir->config.two.l2table, 0b11, l2size);
 
-  switch (l2size)
+
+  pred_dir->config.two.l2size = l2size;
+
+
+  if (pred_dir->config.two.l2size == 4)
+    pred_dir->config.two.pht_t_size = 1;
+  else
+    pred_dir->config.two.pht_t_size = l2size/8;
+
+
+
+
+  // Initialize taken and nottaken PHT
+  pred_dir->config.two.pht_taken = malloc(sizeof(char) * pred_dir->config.two.pht_t_size);
+  if (pred_dir->config.two.pht_taken == NULL)
+    fatal("out of virtual memory");
+  memset(pred_dir->config.two.pht_taken, 0b11111111, pred_dir->config.two.pht_t_size);
+  
+  pred_dir->config.two.pht_nottaken = malloc(sizeof(char) * pred_dir->config.two.pht_t_size);
+  if (pred_dir->config.two.pht_nottaken == NULL)
+    fatal("out of virtual memory");
+  memset(pred_dir->config.two.pht_nottaken, 0b11111111, pred_dir->config.two.pht_t_size);
+
+  switch (pred_dir->config.two.l2size)
   {
     case 4:
       c = 2;
@@ -250,20 +249,26 @@ static void bpred_yags_create(struct bpred_dir_t *pred_dir, unsigned int l1size,
   i = c - shift_width;
   if (i <= 0)
     i = 1;
-  int i_mask = 0;
+
+
+  int i_aux = 0;
   for (int j = 0; j < i; j++)
   {
-    i_mask <<= 0b1;
-    i_mask |= 0b1;
+    i_aux = i_aux << 1;
+    i_aux = i_aux | 1;
   }
-  int g_mask = 0;
+
+
+  int g_aux = 0;
   for (int j = 0; j < shift_width; j++)
   {
-    g_mask <<= 0b1;
-    g_mask |= 0b1;
+    g_aux = g_aux << 1;
+    g_aux = g_aux | 1;
   }
-  pred_dir->config.two.i_mask = i_mask;
-  pred_dir->config.two.g_mask = g_mask;
+
+
+  pred_dir->config.two.i = i_aux;
+  pred_dir->config.two.g = g_aux;
 }
 
 /* create a branch direction predictor */
@@ -375,7 +380,7 @@ bpred_dir_config(
   case BPredYags:
     fprintf(stream,
       "pred_dir: Yags. %s: PHT size: %d, 2nd PHT size: %d, %s xor.\n",
-      name, pred_dir->config.two.pht.entries, pred_dir->config.two.taken_pht.entries,
+      name, pred_dir->config.two.l2size, pred_dir->config.two.pht_t_size,
       pred_dir->config.two.xor ? "" : "no");
     break;
 
@@ -594,11 +599,11 @@ bpred_after_priming(struct bpred_t *bpred)
   bpred->ras_hits = 0;
 }
 
-static char *yags_prediction(struct bpred_dir_t *pred_dir, md_addr_t baddr)
+unsigned char *yags_prediction(struct bpred_dir_t *pred_dir, md_addr_t baddr)
 {
   unsigned char *p = NULL;
   int i_bits, g_bits, c_bits;
-  char pht_prediction, mask, found, prediction;
+  char pht_prediction, tag_aux, found, prediction;
   int tag;
 
   // Get lower 6 bits from PC (i)
@@ -606,37 +611,37 @@ static char *yags_prediction(struct bpred_dir_t *pred_dir, md_addr_t baddr)
   found = 0;
 
   // Obtain value to access pht: c_bits
-  i_bits = baddr & pred_dir->config.two.i_mask;
-  g_bits = pred_dir->config.two.gbhr.history_register & pred_dir->config.two.g_mask;
-  c_bits = (i_bits << pred_dir->config.two.gbhr.n_bits) | g_bits;
+  i_bits = baddr & pred_dir->config.two.i;
+  g_bits = pred_dir->config.two.gbhr_table & pred_dir->config.two.g;
+  c_bits = (i_bits << pred_dir->config.two.shift_width) | g_bits;
 
   // Access one table or another
-  pht_prediction = pred_dir->config.two.pht.table[c_bits % pred_dir->config.two.pht.entries];
+  pht_prediction = pred_dir->config.two.l2table[c_bits % pred_dir->config.two.l2size];
   if (pht_prediction & 0b10) // search in nottaken
   {
-    prediction = pred_dir->config.two.nottaken_pht.table[c_bits % pred_dir->config.two.nottaken_pht.entries];
-    mask = (prediction & 0b11111100) >> 2;
-    if (mask == tag)
+    prediction = pred_dir->config.two.pht_nottaken[c_bits % pred_dir->config.two.pht_t_size];
+    tag_aux = (prediction & 0b11111100) >> 2;
+    if (tag_aux == tag)
     {
       found = 1;
-      pred_dir->config.two.nottaken_pht.table[c_bits % pred_dir->config.two.nottaken_pht.entries] &= 0b00000011;
-      p = &(pred_dir->config.two.nottaken_pht.table[c_bits % pred_dir->config.two.nottaken_pht.entries]);
+      pred_dir->config.two.pht_nottaken[c_bits % pred_dir->config.two.pht_t_size] = pred_dir->config.two.pht_nottaken[c_bits % pred_dir->config.two.pht_t_size] & 0b00000011;
+      p = &(pred_dir->config.two.pht_nottaken[c_bits % pred_dir->config.two.pht_t_size]);
     }
   }
   else
   {
-    prediction = pred_dir->config.two.taken_pht.table[c_bits % pred_dir->config.two.taken_pht.entries];
-    pred_dir->config.two.taken_pht.table[c_bits % pred_dir->config.two.taken_pht.entries] &= 0b00000011;
-    mask = (prediction & 0b11111100) >> 2;
-    if (mask == tag)
+    prediction = pred_dir->config.two.pht_taken[c_bits % pred_dir->config.two.pht_t_size];
+    pred_dir->config.two.pht_taken[c_bits % pred_dir->config.two.pht_t_size] = pred_dir->config.two.pht_taken[c_bits % pred_dir->config.two.pht_t_size] & 0b00000011;
+    tag_aux = (prediction & 0b11111100) >> 2;
+    if (tag_aux == tag)
     {
       found = 1;
-      p = &(pred_dir->config.two.taken_pht.table[c_bits % pred_dir->config.two.taken_pht.entries]);
+      p = &(pred_dir->config.two.pht_taken[c_bits % pred_dir->config.two.pht_t_size]);
     }
   }
   if (!found)
   {
-    return &(pred_dir->config.two.pht.table[c_bits % pred_dir->config.two.pht.entries]);
+    return &(pred_dir->config.two.l2table[c_bits % pred_dir->config.two.l2size]);
   }
   return p;
 }
@@ -1011,46 +1016,43 @@ bpred_update(struct bpred_t *pred,	/* branch predictor instance */
       (pred->class == BPredYags))
   {
     // Add a ghbr 0 o 1 based on taken
-    pred->dirpred.twolev->config.two.gbhr.history_register << 1;
+    pred->dirpred.twolev->config.two.gbhr_table << 1;
     if (taken)
-      pred->dirpred.twolev->config.two.gbhr.history_register | 1;
+      pred->dirpred.twolev->config.two.gbhr_table | 1;
 
     int tag = baddr & 0b111111;
 
     // Update pht
-    int i_bits = baddr & pred->dirpred.twolev->config.two.i_mask;
-    int g_bits = pred->dirpred.twolev->config.two.gbhr.history_register & pred->dirpred.twolev->config.two.g_mask;
-    int index = (i_bits << pred->dirpred.twolev->config.two.gbhr.n_bits) | g_bits;
+    int i_bits = baddr & pred->dirpred.twolev->config.two.i;
+    int g_bits = pred->dirpred.twolev->config.two.gbhr_table & pred->dirpred.twolev->config.two.g;
+    int index = (i_bits << pred->dirpred.twolev->config.two.shift_width) | g_bits;
 
-    int saturated = pred->dirpred.twolev->config.two.pht.table[index % pred->dirpred.twolev->config.two.pht.entries] & 0b11;
+    int saturated = pred->dirpred.twolev->config.two.l2table[index % pred->dirpred.twolev->config.two.l2size] & 0b11;
+    int saturated_taken = pred->dirpred.twolev->config.two.pht_taken[index % pred->dirpred.twolev->config.two.pht_t_size] & 0b11;
+    int saturated_nottaken = pred->dirpred.twolev->config.two.pht_nottaken[index % pred->dirpred.twolev->config.two.pht_t_size] & 0b11;
+
     if (taken)
     {
       if (saturated < 3)
         saturated++;
+
+      if (saturated_taken < 3)
+        saturated_taken++;
+      saturated_taken = saturated_taken | (tag << 2);
+      pred->dirpred.twolev->config.two.pht_taken[index % pred->dirpred.twolev->config.two.pht_t_size] = saturated_taken;
+
     }
     else
     {
       if (saturated > 0)
         saturated--;
-    }
-    pred->dirpred.twolev->config.two.pht.table[index % pred->dirpred.twolev->config.two.pht.entries] = saturated;
 
-    if (taken)
-    {
-      saturated = pred->dirpred.twolev->config.two.taken_pht.table[index % pred->dirpred.twolev->config.two.taken_pht.entries] & 0b11;
-      if (saturated < 3)
-        saturated++;
-      saturated = saturated | (tag << 2);
-      pred->dirpred.twolev->config.two.taken_pht.table[index % pred->dirpred.twolev->config.two.taken_pht.entries] = saturated;
+      if (saturated_nottaken > 0)
+        saturated_nottaken--;
+      saturated_nottaken = saturated_nottaken | (tag << 2);
+      pred->dirpred.twolev->config.two.pht_nottaken[index % pred->dirpred.twolev->config.two.pht_t_size] =  saturated_nottaken;
     }
-    else
-    {
-      saturated = pred->dirpred.twolev->config.two.nottaken_pht.table[index % pred->dirpred.twolev->config.two.nottaken_pht.entries] & 0b11;
-      if (saturated > 0)
-        saturated--;
-      saturated = saturated | (tag << 2);
-      pred->dirpred.twolev->config.two.nottaken_pht.table[index % pred->dirpred.twolev->config.two.nottaken_pht.entries] =  saturated;
-    }
+    pred->dirpred.twolev->config.two.l2table[index % pred->dirpred.twolev->config.two.l2size] = saturated;
   }
 
   /* find BTB entry if it's a taken branch (don't allocate for non-taken) */

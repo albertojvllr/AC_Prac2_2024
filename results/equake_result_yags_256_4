@@ -6,9 +6,9 @@ entity, or for any commercial purpose, without the prior written permission
 of SimpleScalar, LLC (info@simplescalar.com).
 
 warning: section `.comment' ignored...
-sim: command line: /home/milax/Escriptori/AC_Prac2_2024/programs/simplesim-3.0_acx2/sim-outorder -fastfwd 100000000 -max:inst 100000000 -mem:width 32 -mem:lat 300 2 -bpred yags -bpred:yags 1 256 4 0 -redir:sim /home/milax/Escriptori/AC_Prac2_2024/results/equake_result_yags_256_4 /home/milax/Escriptori/AC_Prac2_2024/programs/equake/exe/equake.exe 
+sim: command line: /home/milax/Escriptori/AC_Prac2_2024/programs/simplesim-3.0_acx2/sim-outorder -fastfwd 100000000 -max:inst 100000000 -mem:width 32 -mem:lat 300 2 -bpred yags -bpred yags -bpred:yags 1 256 4 0 -redir:sim /home/milax/Escriptori/AC_Prac2_2024/results/equake_result_yags_256_4 /home/milax/Escriptori/AC_Prac2_2024/programs/equake/exe/equake.exe 
 
-sim: simulation started @ Sat Nov 16 12:22:14 2024, options follow:
+sim: simulation started @ Sat Nov 16 17:22:33 2024, options follow:
 
 sim-outorder: This simulator implements a very detailed out-of-order issue
 superscalar processor with a two-level memory system and speculative
@@ -54,8 +54,8 @@ latency of all pipeline operations.
 -cache:dl2lat               6 # l2 data cache hit latency (in cycles)
 -cache:il1       il1:512:32:1:l # l1 inst cache config, i.e., {<config>|dl1|dl2|none}
 -cache:il1lat               1 # l1 instruction cache hit latency (in cycles)
--cache:il2                dl2 # l2 instruction cache config, i.e., {</home/milax/Escriptori/AC_Prac2_2024/programs/equake/exe/equake.exe: Reading nodes.
-config>|dl2|none}
+-cache:il2                dl2 # l2 instruction cache conf/home/milax/Escriptori/AC_Prac2_2024/programs/equake/exe/equake.exe: Reading nodes.
+ig, i.e., {<config>|dl2|none}
 -cache:il2lat               6 # l2 instruction cache hit latency (in cycles)
 -cache:flush            false # flush caches on system calls
 -cache:icompress        false # convert 64-bit inst addresses to 32-bit inst equivalents

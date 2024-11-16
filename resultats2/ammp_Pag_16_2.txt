@@ -1,2 +1,0 @@
-sim_IPC: 0.0962
-bpred_dir_rate: 0.8949

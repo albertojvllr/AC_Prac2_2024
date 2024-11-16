@@ -105,7 +105,7 @@ enum bpred_class {
   BPredTaken,			/* static predict taken */
   BPredNotTaken,		/* static predict not taken */
   BPred_NUM,
-  BPredYags    /*YAGS predictor*/
+  BPredYags
 };
 
 /* an entry in a BTB */
@@ -114,6 +114,16 @@ struct bpred_btb_ent_t {
   enum md_opcode op;		/* opcode of branch corresp. to addr */
   md_addr_t target;		/* last destination of branch when taken */
   struct bpred_btb_ent_t *prev, *next; /* lru chaining pointers */
+};
+
+struct gbhr_t{
+  char n_bits; // g : Must be between 1 and 5
+  char history_register; // we access here the lower g bits.
+};
+
+struct pht_t{
+  unsigned int entries; // size c : 4, 16, 64, 256, 1024 entries
+  unsigned char *table; // 2 bits stored. direct access with g + i from jump instruction
 };
 
 /* direction predictor def */
@@ -127,16 +137,17 @@ struct bpred_dir_t {
     struct {
       int l1size;		/* level-1 size, number of history regs */
       int l2size;		/* level-2 size, number of pred states */
-      int shift_width;		/* amount of history in level-1 shift regs G*/
+      int shift_width;		/* amount of history in level-1 shift regs */
       int xor;			/* history xor address flag */
-      int shiftregs;		/* level-1 history table */
-      unsigned char *l2table;	/* level-2 prediction state table */  
-      unsigned char *pht_taken;	/* taken prediction state table */
-      unsigned char *pht_nottaken;	/* not_taken prediction state table */
-      int i;   
-      int g;
+      int *shiftregs;		/* level-1 history table */
+      unsigned char *l2table;	/* level-2 prediction state table */
+      struct gbhr_t gbhr;
+      struct pht_t pht;
+      struct pht_t taken_pht;
+      struct pht_t nottaken_pht;
+      int i_mask;
+      int g_mask;
     } two;
-
   } config;
 };
 
@@ -256,7 +267,7 @@ bpred_lookup(struct bpred_t *pred,	/* branch predictor instance */
  * hopefully this uncorrupts the stack. */
 void
 bpred_recover(struct bpred_t *pred,	/* branch predictor instance */
-	      md_addr_t baddr,		/* branch address */
+	      md_addr_t baddr,		/* configbranch address */
 	      int stack_recover_idx);	/* Non-speculative top-of-stack;
 					 * used on mispredict recovery */
 

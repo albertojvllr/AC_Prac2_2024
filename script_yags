@@ -1,0 +1,84 @@
+#!/bin/bash
+path=$(pwd)
+results="results/"
+outputs="outputs/"
+errors="errors/"
+if [ ! -d ${results} ]; then
+	mkdir ${results}
+fi
+if [ ! -d ${outputs} ]; then
+	mkdir ${outputs}
+fi
+if [ ! -d ${errors} ]; then
+	mkdir ${errors}
+fi
+# Set path to the root directory where the programs are located
+programs_root="${path}/programs/"
+# Set up paths and variables
+simplescalar=${programs_root}"simplesim-3.0_acx2/sim-outorder"
+simplebpred=${programs_root}"simplesim-3.0_acx2/sim-bpred"
+fastfwd="-fastfwd 100000000"
+maxinst="-max:inst 100000000"
+memwidth="-mem:width 32"
+memlat="-mem:lat 300 2"
+parameters="${fastfwd} ${maxinst} ${memwidth} ${memlat}"
+ammp_exe=${programs_root}"ammp/exe/ammp.exe"
+ammp_result="-redir:sim ${path}/${results}ammp_result"
+ammp_in="ammp.in"
+ammp_out="${path}/${outputs}ammp.out"
+ammp_err="${path}/${errors}ammp.err"
+applu_exe=${programs_root}"applu/exe/applu.exe"
+applu_result="-redir:sim ${path}/${results}applu_result"
+applu_in="applu.in"
+applu_out="${path}/${outputs}applu.out"
+applu_err="${path}/${errors}applu.err"
+eon_exe=${programs_root}"eon/exe/eon.exe"
+eon_result="-redir:sim ${path}/${results}eon_result"
+eon_in="chair.control.cook chair.camera chair.surfaces chair.cook.ppm ppm pixels_out.cook"
+eon_out="${path}/${outputs}eon.out"
+eon_err="${path}/${errors}eon.err"
+equake_exe=${programs_root}"equake/exe/equake.exe"
+equake_result="-redir:sim ${path}/${results}equake_result"
+equake_in="inp.in"
+equake_out="${path}/${outputs}equake.out"
+equake_err="${path}/${errors}equake.err"
+vpr_exe=${programs_root}"vpr/exe/vpr.exe"
+vpr_result="-redir:sim ${path}/${results}vpr_result"
+vpr_in="net.in arch.in place.out dum.out -nodisp -place_only -init_t 5 -exit_t 0.005 -alpha_t 0.9412 -inner_num 2"
+vpr_out="${path}/${outputs}vpr.out"
+vpr_err="${path}/${errors}vpr.err"
+pushd "${programs_root}/ammp/data/ref"
+${simplescalar} ${parameters} -bpred:yags 1 4 1 0 ${ammp_result}"_yags_4_1" ${ammp_exe} < ${ammp_in} > ${ammp_out} 2> ${ammp_err}"yags_4_1"
+${simplescalar} ${parameters} -bpred:yags 1 16 2 0 ${ammp_result}"_yags_16_2" ${ammp_exe} < ${ammp_in} > ${ammp_out} 2> ${ammp_err}"_yags_16_2"
+${simplescalar} ${parameters} -bpred:yags 1 64 3 0 ${ammp_result}"_yags_64_3" ${ammp_exe} < ${ammp_in} > ${ammp_out} 2> ${ammp_err}"_yags_64_3"
+${simplescalar} ${parameters} -bpred:yags 1 256 4 0 ${ammp_result}"_yags_256_4" ${ammp_exe} < ${ammp_in} > ${ammp_out} 2> ${ammp_err}"_yags_256_4"
+${simplescalar} ${parameters} -bpred:yags 1 1024 5 0 ${ammp_result}"_yags_1024_5" ${ammp_exe} < ${ammp_in} > ${ammp_out} 2> ${ammp_err}"_yags_1024_5"
+popd
+pushd "${programs_root}/applu/data/ref"
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 4 1 0 ${applu_result}"_yags_4_1" ${applu_exe} < ${applu_in} > ${applu_out} 2> ${applu_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 16 2 0 ${applu_result}"_yags_16_2" ${applu_exe} < ${applu_in} > ${applu_out} 2> ${applu_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 64 3 0 ${applu_result}"_yags_64_3" ${applu_exe} < ${applu_in} > ${applu_out} 2> ${applu_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 256 4 0 ${applu_result}"_yags_256_4" ${applu_exe} < ${applu_in} > ${applu_out} 2> ${applu_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 1024 5 0 ${applu_result}"_yags_1024_5" ${applu_exe} < ${applu_in} > ${applu_out} 2> ${applu_err}
+popd
+pushd "${programs_root}/equake/data/ref"
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 4 1 0 ${equake_result}"_yags_4_1" ${equake_exe} < ${equake_in} > ${equake_out} 2> ${equake_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 16 2 0 ${equake_result}"_yags_16_2" ${equake_exe} < ${equake_in} > ${equake_out} 2> ${equake_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 64 3 0 ${equake_result}"_yags_64_3" ${equake_exe} < ${equake_in} > ${equake_out} 2> ${equake_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 256 4 0 ${equake_result}"_yags_256_4" ${equake_exe} < ${equake_in} > ${equake_out} 2> ${equake_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 1024 5 0 ${equake_result}"_yags_1024_5" ${equake_exe} < ${equake_in} > ${equake_out} 2> ${equake_err}
+popd
+pushd "${programs_root}/eon/data/ref"
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 4 1 0 ${eon_result}"_yags_4_1" ${eon_exe} ${eon_in} > ${eon_out} 2> ${eon_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 16 2 0 ${eon_result}"_yags_16_2" ${eon_exe} ${eon_in} > ${eon_out} 2> ${eon_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 64 3 0 ${eon_result}"_yags_64_3" ${eon_exe} ${eon_in} > ${eon_out} 2> ${eon_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 256 4 0 ${eon_result}"_yags_256_4" ${eon_exe} ${eon_in} > ${eon_out} 2> ${eon_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 1024 5 0 ${eon_result}"_yags_1024_5" ${eon_exe} ${eon_in} > ${eon_out} 2> ${eon_err}
+popd
+pushd "${programs_root}/vpr/data/ref"
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 4 1 0 ${vpr_result}"_yags_4_1" ${vpr_exe} ${vpr_in} > ${vpr_out} 2> ${vpr_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 16 2 0 ${vpr_result}"_yags_16_2" ${vpr_exe} ${vpr_in} > ${vpr_out} 2> ${vpr_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 64 3 0 ${vpr_result}"_yags_64_3" ${vpr_exe} ${vpr_in} > ${vpr_out} 2> ${vpr_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 256 4 0 ${vpr_result}"_yags_256_4" ${vpr_exe} ${vpr_in} > ${vpr_out} 2> ${vpr_err}
+${simplescalar} ${parameters} -bpred yags -bpred:yags 1 1024 5 0 ${vpr_result}"_yags_1024_5" ${vpr_exe} ${vpr_in} > ${vpr_out} 2> ${vpr_err}
+popd
